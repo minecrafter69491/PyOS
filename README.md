@@ -78,8 +78,8 @@ How To Make Packages:
       Please Make Keyboard Interupt bypass
       And Now You Can Write ANYTHING In It
       There Is No Definition Needed.
-If You Want To Change The Kernel Code, The Current Code Is In The kernel folder
-install the buildkrnl package
-then at the root, run buildkrnl
+*If You Want To Change The Kernel Code, The Current Code Is In The kernel folder
+*install the buildkrnl package
+*then at the root, run buildkrnl
 
   
