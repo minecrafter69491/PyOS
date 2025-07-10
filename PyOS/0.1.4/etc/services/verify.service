@@ -1,0 +1,5 @@
+{
+    "exec": "python ",
+    "path": "\\bin\\verify_update.py",
+    "enabled": true
+}
