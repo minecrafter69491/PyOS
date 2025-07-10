@@ -39,8 +39,6 @@ It Has A Realistic-ish Boot Process With A kernel Init and A login Prompt
   * AutoInstall Dependencies for python
   * Apps For Gui
   * Loading programs into Ram/Environ for access anywhere
-  * Pkg Working Outside of Local Ips (Only works on 192.168.0.150 at port 5000 i think)
-  * Pkg Installing Updates
   * OOBE/ First Boot Setup
   * A good file editor
 
