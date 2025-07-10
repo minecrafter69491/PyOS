@@ -70,7 +70,7 @@ It Has A Realistic-ish Boot Process With A kernel Init and A login Prompt
 ```
     cpkroot [PKG NAME]
     cd [PKG_NAME]
-    edit exec.py*
+    edit exec.py
     cd ..
     build [PKG_NAME]
 ```
