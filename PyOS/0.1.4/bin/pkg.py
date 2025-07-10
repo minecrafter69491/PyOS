@@ -1,222 +1,150 @@
-import os
-import sys
 import zipfile
-import socket
-import shutil, json
+import os
 import tempfile
-import time
-import requests
-from colorama import Fore, Style
-ROOTFS = os.environ.get("ROOTFS")
-REPO_DIR = os.path.join(ROOTFS,"repo")
-INSTALL_DIR = os.path.join(ROOTFS,"usr")
-PKGDB = os.path.join(ROOTFS,"var","pkgdb.txt")
+import subprocess
+import sys
+import os
 
+BOOT_DIR = os.path.abspath(os.path.dirname(__file__))
+KERNEL_ZIP = os.path.join(BOOT_DIR, "..", "kernel.zip")
+ROOT_FS = os.path.abspath(os.path.join(BOOT_DIR, ".."))
+os.environ["ROOTFS"] = ROOT_FS
 
+custom_dir = os.path.abspath(os.path.join(BOOT_DIR, "bin"))  # or any path you want
+if custom_dir not in sys.path:
+    sys.path.insert(0, custom_dir)
 
-def is_network_enabled():
-    path = os.path.join(ROOTFS, "etc", "services", "ethernet.service")
-    if not os.path.exists(path):
+import os
+import string
+import json
+
+REQUIRED_FILES = [
+    "update.zip",
+    "update.py",
+    "metadata.json",  # You can also check for .txt if needed
+]
+def remove_temp_dir(temp_dir):
+    try:
+        if os.path.exists(temp_dir):
+            print(f"[boot] Removing temporary kernel directory...")
+            for root, dirs, files in os.walk(temp_dir, topdown=False):
+                for name in files:
+                    file_path = os.path.join(root, name)
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        print(f"[boot] Failed to remove file {file_path}: {e}")
+                for name in dirs:
+                    dir_path = os.path.join(root, name)
+                    try:
+                        os.rmdir(dir_path)
+                    except Exception as e:
+                        print(f"[boot] Failed to remove directory {dir_path}: {e}")
+    except Exception as e:
+        print(f"[boot] Failed to remove temporary directory {temp_dir}: {e}")
+        # delete all files and folders inside the directory and try again
+        for root, dirs, files in os.walk(temp_dir, topdown=False):
+            for name in files:
+                file_path = os.path.join(root, name)
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    print(f"[boot] Failed to remove file {file_path}: {e}")
+            for name in dirs:
+                dir_path = os.path.join(root, name)
+                try:
+                    os.rmdir(dir_path)
+                except Exception as e:
+                    print(f"[boot] Failed to remove directory {dir_path}: {e}")
+def is_drive_ready(drive_letter):
+    try:
+        return os.path.exists(drive_letter + "\\")
+    except Exception:
         return False
-    with open(path) as f:
-        svc = json.load(f)
-    return svc.get("enabled", False)
-
-def ensure_dirs():
-    os.makedirs(REPO_DIR, exist_ok=True)
-    os.makedirs(INSTALL_DIR, exist_ok=True)
-    os.makedirs(os.path.dirname(PKGDB), exist_ok=True)
-    if not os.path.exists(PKGDB):
-        with open(PKGDB, 'w') as f:
-            pass
-
-def install_pkg(name):
-    ensure_dirs()
-    zip_path = os.path.join(REPO_DIR, f"{name}.zip")
-
-    if not os.path.exists(zip_path):
-        print(f"[pkg] Local package not found: {name}")
-        if not is_network_enabled():
-            
-            print("[pkg] Networking is disabled. Cannot fetch packages.")
-            return
-
-        print(f"[pkg] Attempting remote fetch from 192.168.0.150...")
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect(("192.168.0.150", 9000))
-                s.sendall(name.encode() + b"\n")
-
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmpf:
-                    while True:
-                        data = s.recv(4096)
-                        if not data:
-                            break
-                        tmpf.write(data)
-                    zip_path = tmpf.name
-                    print(f"[pkg] Remote package {name} fetched successfully.")
-        except Exception as e:
-            print(f"[pkg] Failed to fetch remotely: {e}")
-            return
-
-    dest_dir = os.path.join(INSTALL_DIR, name)
-    backup_dir = os.path.join("maninstall", name)
-
-    # Backup if exists
-    dest_dir = os.path.join(ROOTFS, "usr", name)
-    if os.path.exists(dest_dir):
-        shutil.rmtree(dest_dir)
-        print(f"[pkg] Existing {name} package removed.")
-
-    os.makedirs(dest_dir, exist_ok=True)
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(dest_dir)
-
-    with open(PKGDB, 'a') as f:
-        f.write(f"{name}\n")
-    try_firstrun(name)
-    print(f"[pkg] Installed {name}")
-    time.sleep(1)  # Give it a moment to settle
-def try_firstrun(name):
-    exec_path = os.path.join(INSTALL_DIR, name, "exec.py")
-    if not os.path.exists(exec_path):
+def boot_kernel():
+    if not os.path.exists(KERNEL_ZIP):
+        print("[boot] Kernel not found.")
         return
 
-    try:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(f"{name}_exec", exec_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+    temp_root = tempfile.mkdtemp(prefix="pyos_kernel_")
+    print(f"[boot] Extracting kernel to {temp_root}")
+    os.environ["KERNEL_TEMP"] = temp_root
+    
+    with zipfile.ZipFile(KERNEL_ZIP, 'r') as zip_ref:
+        zip_ref.extractall(temp_root)
 
-        if hasattr(module, "frun"):
-            print(f"[pkg] Running firstrun for {name}...")
-            module.frun()
-        else:
-            print(f"[pkg] No frun() in {name}/exec.py")
-    except Exception as e:
-        print(f"[pkg] Firstrun error: {e}")
-
-def remove_pkg(name):
-    dest_dir = os.path.join(INSTALL_DIR, name)
-    if not os.path.exists(dest_dir):
-        print(f"[pkg] Package not installed: {name}")
+    kernel_entry = os.path.join(temp_root, "init.py")
+    try: 
+        code = subprocess.call(["python", kernel_entry, ROOT_FS])
+    except KeyboardInterrupt:
+        print("[boot] Control-C")
+        remove_temp_dir(temp_root)
         return
-
-    # Remove directory
-    for root, dirs, files in os.walk(dest_dir, topdown=False):
-        for file in files:
-            os.remove(os.path.join(root, file))
-        for dir in dirs:
-            os.rmdir(os.path.join(root, dir))
-    os.rmdir(dest_dir)
-
-    # Remove from pkgdb
-    with open(PKGDB, 'r') as f:
-        lines = f.readlines()
-    with open(PKGDB, 'w') as f:
-        for line in lines:
-            if line.strip() != name:
-                f.write(line)
-
-    print(f"[pkg] Removed {name}")
-
-def install_system(name):
-    ensure_dirs()
-    zip_path = os.path.join(REPO_DIR, f"{name}.zip")
-    if not os.path.exists(zip_path):
-        print(f"[pkg] Local package not found: {name}")
-        return
-    dest_dir = os.environ.get("ROOTFS")  # Default to root if not set
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(dest_dir)
-
-    print(f"[pkg] Installed system version {name}")
-    sys.exit(4)  
-
-
-def update(name):
-    #ensure_dirs()
-    zip_path = os.path.join(REPO_DIR, f"{name}.zip")
-    if not is_network_enabled():
-            print("[pkg] Networking is disabled. Cannot fetch packages.")
-            return
-    if name == "system":
-            import requests
-            print(f'[pkg] Fetching system update from GitHub...')
-            import shell
-            osver = shell.info['PYOS_VERSION']
-            update_url = "https://raw.githubusercontent.com/minecrafter69491/PyOS/refs/heads/main/Packages/system.txt"
-            response = requests.get(update_url)
-            if response.status_code == 200:
-                osverd = response.content.strip()
-                if osverd != osver:
-                    print(f"[pkg] System update available: {Fore.RED +osver+    Style.RESET_ALL} -> {Fore.GREEN + osverd.decode("utf-8") + Style.RESET_ALL}")
-                    update_url = f"https://github.com/minecrafter69491/PyOS/releases/download/v{osverd.decode("utf-8")}/V{osverd.decode("utf-8")}.zip"
-                    print(f"[pkg] Downloading update from {update_url}")
-                    response = requests.get(update_url)
-                    if response.status_code == 200:
-                        with open(zip_path, 'wb') as f:
-                            f.write(response.content)
-                        print(f"[pkg] Remote package {name} fetched successfully.")
-                        install_system(name)
-                        return
-                    else:
-                        print(f"[pkg] Failed to fetch {name}: {response.status_code}")
-                        return
-
-                
-            else:
-                print(f"[pkg] Failed to fetch {name}: {response.status_code}")
-                return
-    print(f"[pkg] Attempting remote fetch from GitHub...")
-    try:
-            import requests
-            update_url = f"https://raw.githubusercontent.com/minecrafter69491/PyOS/refs/heads/main/Packages/{name}.zip"
-            response = requests.get(update_url)
-            if response.status_code == 200:
-                with open(zip_path, 'wb') as f:
-                    f.write(response.content)
-                print(f"[pkg] Remote package {name} fetched successfully.")
-                install_pkg(name)
-            else:
-                print(f"[pkg] Failed to fetch {name}: {response.status_code}")
-                return
-    except Exception as e:
-            print(f"[pkg] Failed to fetch remotely: {e}")
-            return
-def list_installed():
-    with open(PKGDB, 'r') as f:
-        pkgs = [line.strip() for line in f.readlines()]
-    print("[pkg] Installed packages:")
-    for p in pkgs:
-        print(f"  {p}")
-
-def search_repo():
-    print("[pkg] Available packages:")
-    for file in os.listdir(REPO_DIR):
-        if file.endswith(".zip"):
-            print(f"  {file[:-4]}")
-
-def main():
-    ensure_dirs()
-    if len(sys.argv) < 2:
-        print("[pkg] Usage: install/remove/list/update/search <name>")
-        return
-    cmd = sys.argv[1]
-    if cmd == "install" and len(sys.argv) == 3:
-        install_pkg(sys.argv[2])
-        
-    elif cmd == "remove" and len(sys.argv) == 3:
-        remove_pkg(sys.argv[2])
-    elif cmd == "list":
-        list_installed()
-    elif cmd == "search":
-        search_repo()
-    elif cmd == "update" and len(sys.argv) == 3:
-        print(f"[pkg] Updating {sys.argv[2]}...")
-        update(sys.argv[2])
+    if code == 0:
+        print("[boot] Kernel exited cleanly.")#
+        remove_temp_dir(temp_root)
+        exit(0)
+    elif code == 4:
+        print("[boot] System Updated Rebooting...")
+        remove_temp_dir(temp_root)
+        boot_kernel()
+    elif code == 5:
+        print("[boot] Rebooting...")
+        remove_temp_dir(temp_root)
+        boot_kernel()
     else:
-        print("[pkg] Invalid command or arguments.")
+        print(f"[boot] Kernel exited with code {code}.")
+        remove_temp_dir(temp_root)
+def startdrive(temp_root):
+    print("[boot] Starting update process...")
+    kernel_entry = os.path.join(temp_root, "update.py")
+    code = subprocess.call(["python", kernel_entry, temp_root])
+    if code == 0:
+        print("[boot] Update exited cleanly.")
+        exit(0)
+    else:
+        print(f"[boot] Update exited with code {code}.")
+def scan_drives():
+    print("[verify] Scanning drives for PyOS installation media...\n")
+    valid_drives = []
+
+    for letter in string.ascii_uppercase:
+        drive = f"{letter}:/"
+        if not is_drive_ready(drive):
+            continue
+
+        found_files = []
+        for fname in REQUIRED_FILES:
+            if os.path.exists(os.path.join(drive, fname)):
+                found_files.append(fname)
+
+        if len(found_files) == len(REQUIRED_FILES):
+            print(f"[ok] {drive} contains a valid PyOS installer.")
+            valid_drives.append(drive)
+
+            # Optional: print metadata if JSON
+            meta_path = os.path.join(drive, "metadata.json")
+            try:
+                with open(meta_path, 'r') as f:
+                    metadata = json.load(f)
+                print("       > Metadata:", metadata)
+            except Exception as e:
+                print("       > Failed to read metadata:", e)
+            startdrive(drive)
+
+        elif found_files:
+            print(f"[partial] {drive} has some files: {found_files}")
+        else:
+            print(f"[skip] {drive} has no relevant files.")
+    if not valid_drives:
+        print("[error] No valid PyOS installation media found.")
+        boot_kernel()
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        scan_drives()
+    except Exception as e:
+        print(f"[boot] An error occurred: {e}")
+        remove_temp_dir(os.environ.get("KERNEL_TEMP", ""))
+        exit(1)
