@@ -1,4 +1,4 @@
-# PyOS Developer Preview 0.1.3
+# PyOS Developer Preview 0.1.4
 
 
 
@@ -15,6 +15,9 @@ It Has A Realistic-ish Boot Process With A kernel Init and A login Prompt
   * ps(only ps windows only works for now)/kill (windows PIDS ONLY)/free (System Ram)/du/df
   * removing/ adding users
   * Edit (VERY JANKY)
+  * A Service Closer
+  * Pkg Working Outside of Local Ips
+  * Pkg Installing Updates
 
 
 # Being Worked On:
@@ -39,7 +42,7 @@ It Has A Realistic-ish Boot Process With A kernel Init and A login Prompt
   * Pkg Installing Updates
   * OOBE/ First Boot Setup
   * A good file editor
-  * A Service Closer
+
 
 # Disclamer:
   * THIS ONLY WORKS ON WINDOWS (tested on windows 11)
