@@ -11,7 +11,8 @@ It Has A Realistic-ish Boot Process With A kernel Init and A login Prompt
 
   * pkg (package manager)
   * service(service manager)
-  * ls/rm/cp/mv/cat/touch/reboot(only reboot -s works)/
+  * ls/rm/cp/mv/cat/touch/reboot (-s will shutdown)/
+  * cd / works
   * ps(only ps windows only works for now)/kill (windows PIDS ONLY)/free (System Ram)/du/df
   * removing/ adding users
   * Edit (VERY JANKY)
