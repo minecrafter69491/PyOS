@@ -157,7 +157,7 @@ def run_mkdir(args):
         print("mkdir error:", e)
 info = {
         "PYOS_NAME": "PyOs Developer Preview",
-        "PYOS_VERSION": "0.1.3",
+        "PYOS_VERSION": "0.1.4",
         "KERNEL_VERSION": get_kernel_version(),
     }
 def run_info():
