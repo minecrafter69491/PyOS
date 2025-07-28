@@ -1,0 +1,13 @@
+{
+    "kext_name": "AutoLogin",
+    "kext_version": "1.0.0",
+    "kext_author": "PyOS Team",
+    "kext_description": "This is a Auto Login Kernel Extension.",
+    "kext_dependencies": [
+        "com.pyos.kernel.init",
+        "com.pyos.kernel.loadpreboot",
+        "com.pyos.kernel.login"
+    ],
+    "ExecutablePath": "Contents/PyOS/AutoLogin",
+    "DefaultUser": "root"
+}

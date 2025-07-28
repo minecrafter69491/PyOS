@@ -1,0 +1,54 @@
+import os
+import sys
+
+config = os.path.join(os.path.dirname(__file__),'..','..', "config.json")
+import json
+user = json.loads(open(config).read())['DefaultUser']
+
+login = f'''import os
+import sys
+import subprocess
+
+
+
+def start_shell(root_fs, username):
+    shell = os.path.join(root_fs, "bin", "shell.py")
+    return subprocess.call(["python", shell, username])
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("[login] Error: No root path provided.")
+        sys.exit(1)
+
+    root_fs = sys.argv[1]
+
+    while True:
+        user = True
+        if user:
+            try:
+                result = start_shell(root_fs, '{user}')
+                if result == 1:
+                    print("[login] Shutdown requested.")
+                    break
+                elif result == 4:
+                    print("[login] System package installed. Rebooting system...")
+                    sys.exit(4)
+                if result == 5:
+                    print("[login] Rebooting system...")
+                    sys.exit(5)
+            except KeyboardInterrupt:
+                print("[login] Control-C detected. Exiting shell.")
+                result = 0'''
+
+def printout(mess, verbose=False):
+    if verbose:
+        print(mess)
+    else:
+        pass
+        
+kerneltemp = os.environ.get("KERNEL_TEMP")
+verbose = True if sys.argv[1] == '1' else False
+login_path = os.path.join(kerneltemp, "login.py")
+with open(login_path, "w") as f:
+    f.write(login)
+printout(f"[AutoLogin] Altered Login script written to {login_path}", verbose)
