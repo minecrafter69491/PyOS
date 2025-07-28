@@ -1,4 +1,4 @@
-# PyOS Developer Preview 0.1.4
+# PyOS Developer Preview 0.1.5
 
 
 
@@ -17,6 +17,10 @@ It Has A Realistic-ish Boot Process With A kernel Init and A login Prompt
   * removing/ adding users
   * Edit (VERY JANKY)
   * A Service Closer
+  * TTY Like Operation (PIT)
+  * Boot Arguments
+  * Preboot
+  * Kernel Extensions
   * Pkg Working Outside of Local Ips
   * Pkg Installing Updates
 
@@ -26,7 +30,6 @@ It Has A Realistic-ish Boot Process With A kernel Init and A login Prompt
 
   * proper services (graphics, sound, ethernet(kinda works)
   * GUI
-  * TTY Like Terminal
   * Good Packages
   * Error Management
   * Way More Commands
